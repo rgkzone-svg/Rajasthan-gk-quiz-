@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rajasthan GK Zone – Daily Quiz</title>
+
+<!-- Firebase SDKs (COMPAT – ERROR FREE) -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+<style>
+body{margin:0;font-family:Arial;background:#ff9800;}
+.app{max-width:420px;margin:auto;background:#fff;min-height:100vh;padding:15px;}
+h1{text-align:center;color:#e65100;font-size:22px;}
+.timer{text-align:right;color:red;font-weight:bold;}
+.option{background:#f2f2f2;padding:10px;margin:6px 0;border-radius:6px;}
+button{width:100%;padding:12px;background:#e65100;color:#fff;border:none;border-radius:6px;margin-top:8px;}
+.hide{display:none;}
+input{width:100%;padding:10px;margin:5px 0;}
+hr{margin:15px 0;}
+</style>
+</head>
+
+<body>
+<div class="app">
+
+<h1>Rajasthan GK Zone<br>Daily Quiz</h1>
+
+<!-- QUIZ BOX -->
+<div id="quizBox">
+ <div class="timer">⏱ Time: <span id="time">20</span>s</div>
+ <h3 id="question"></h3>
+ <div id="options"></div>
+ <button onclick="nextQuestion()">Next</button>
+</div>
+
+<!-- RESULT -->
+<div id="resultBox" class="hide">
+ <h2>🎉 Result</h2>
+ <p id="resultText"></p>
+ <button onclick="shareResult()">📤 Share Result</button>
+</div>
+
+<hr>
+
+<!-- ADMIN LOGIN -->
+<div id="loginBox">
+ <h3>Admin Login</h3>
+ <input id="email" placeholder="Admin Email">
+ <input id="password" type="password" placeholder="Password">
+ <button onclick="adminLogin()">Login</button>
+</div>
+
+<!-- ADMIN PANEL -->
+<div id="adminPanel" class="hide">
+ <h3>Add Question</h3>
+ <input id="q" placeholder="Question">
+ <input id="o1" placeholder="Option 1">
+ <input id="o2" placeholder="Option 2">
+ <input id="o3" placeholder="Option 3">
+ <input id="o4" placeholder="Option 4">
+ <input id="ans" placeholder="Correct Option (1-4)">
+ <button onclick="addQuestion()">Save Question</button>
+</div>
+
+</div>
+
+<script>
+/* 🔥 FIREBASE CONFIG (YOUR PROJECT) */
+firebase.initializeApp({
+  apiKey: "AIzaSyAfHnNHs0AUtDk5OQYtOz1MhFKVrEEoq7M",
+  authDomain: "rajasthan-gk-zone-b464d.firebaseapp.com",
+  projectId: "rajasthan-gk-zone-b464d",
+  storageBucket: "rajasthan-gk-zone-b464d.firebasestorage.app",
+  messagingSenderId: "400335288844",
+  appId: "1:400335288844:web:c3a38d916641704391cc29"
+});
+
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+/* QUIZ LOGIC */
+let questions = [];
+let index = 0;
+let score = 0;
+let time = 20;
+let timer = null;
+
+db.collection("questions").get().then(snapshot=>{
+  snapshot.forEach(doc => questions.push(doc.data()));
+
+  if(questions.length === 0){
+    questions.push({
+      q: "राजस्थान की राजधानी क्या है?",
+      o: ["जयपुर","जोधपुर","कोटा","अजमेर"],
+      a: 0
+    });
+  }
+  loadQuestion();
+});
+
+function loadQuestion(){
+  if(index >= questions.length){
+    endQuiz();
+    return;
+  }
+
+  document.getElementById("question").innerText = questions[index].q;
+  const optBox = document.getElementById("options");
+  optBox.innerHTML = "";
+
+  questions[index].o.forEach((op,i)=>{
+    optBox.innerHTML += `
+      <label class="option">
+        <input type="radio" name="opt" value="${i}"> ${op}
+      </label>`;
+  });
+
+  time = 20;
+  document.getElementById("time").innerText = time;
+  clearInterval(timer);
+
+  timer = setInterval(()=>{
+    time--;
+    document.getElementById("time").innerText = time;
+    if(time === 0){
+      nextQuestion();
+    }
+  },1000);
+}
+
+function nextQuestion(){
+  clearInterval(timer);
+  const selected = document.querySelector("input[name='opt']:checked");
+  if(selected && Number(selected.value) === questions[index].a){
+    score++;
+  }
+  index++;
+  loadQuestion();
+}
+
+function endQuiz(){
+  document.getElementById("quizBox").classList.add("hide");
+  document.getElementById("resultBox").classList.remove("hide");
+  let percent = Math.round((score / questions.length) * 100);
+  document.getElementById("resultText").innerHTML =
+    `Score: <b>${score}/${questions.length}</b><br>Percentage: <b>${percent}%</b>`;
+
+  db.collection("leaderboard").add({
+    score: percent,
+    date: new Date()
+  });
+}
+
+function shareResult(){
+  navigator.share({
+    text: `I scored ${score}/${questions.length} in Rajasthan GK Zone Daily Quiz!`,
+    url: location.href
+  });
+}
+
+/* ADMIN LOGIN */
+function adminLogin(){
+  const email = document.getElementById("email").value;
+  const pass = document.getElementById("password").value;
+
+  auth.signInWithEmailAndPassword(email, pass)
+  .then(()=>{
+    document.getElementById("loginBox").classList.add("hide");
+    document.getElementById("adminPanel").classList.remove("hide");
+  })
+  .catch(err=>{
+    alert("Login Failed: " + err.message);
+  });
+}
+
+/* ADD QUESTION */
+function addQuestion(){
+  const q = document.getElementById("q").value;
+  const o1 = document.getElementById("o1").value;
+  const o2 = document.getElementById("o2").value;
+  const o3 = document.getElementById("o3").value;
+  const o4 = document.getElementById("o4").value;
+  const ans = Number(document.getElementById("ans").value) - 1;
+
+  if(!q || !o1 || !o2 || !o3 || !o4 || ans < 0){
+    alert("All fields required");
+    return;
+  }
+
+  db.collection("questions").add({
+    q: q,
+    o: [o1,o2,o3,o4],
+    a: ans
+  });
+
+  alert("Question Added Successfully");
+}
+</script>
+
+</body>
+</html>
